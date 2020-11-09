@@ -28,7 +28,7 @@ String VERSION = "v1.0.1";
 // LED
 const int ledPin = D5; //GPIO 14
 int ledState;
-const String ledTopic = "basicled"; //Must be a unique across all your devices
+const String ledTopic = "basicled"; //Must be unique across all your devices
 
 WiFiClient wifiClient;
 
