@@ -29,11 +29,11 @@ String VERSION = "v1.0.1";
 // LED
 const int ledPin = D1;
 int ledState;
-const String ledTopic = "ledpushbtn"; //Must be unique across all your devices
+const String ledTopic = "lightswitch"; //Must be unique across all your devices
 
-// PUSH BUTTON
+// SWITCH
 const int switchPin = D2;
-Button pushBtn(switchPin, 25, false, false);
+ToggleButton swtch(switchPin, false, 25, false, false);
 
 WiFiClient wifiClient;
 
@@ -70,7 +70,7 @@ void setup() {
   reconnect();
 
   pinMode(ledPin, OUTPUT);
-  pushBtn.begin();
+  swtch.begin();
 
   if (ledState) digitalWrite(ledPin, HIGH);
 
@@ -85,8 +85,8 @@ void loop() {
     reconnect();
   }
 
-  pushBtn.read();
-  if (pushBtn.wasReleased()) {
+  swtch.read();
+  if (swtch.changed()) {
     toggleLed();
   }
 
