@@ -2,6 +2,7 @@
 #include <ESP8266WiFi.h>
 #include <Ticker.h>
 #include <EEPROM.h>
+#include <JC_Button.h> // https://github.com/JChristensen/JC_Button
 
 /*
   ======================================================================================================================================
@@ -28,7 +29,11 @@ String VERSION = "v1.0.1";
 // LED
 const int ledPin = D1;
 int ledState;
-const String ledTopic = "basicled"; //Must be unique across all your devices
+const String ledTopic = "ledpushbtn"; //Must be unique across all your devices
+
+// PUSH BUTTON
+const int switchPin = D2;
+Button pushBtn(switchPin, 25, false, false);
 
 WiFiClient wifiClient;
 
@@ -65,6 +70,7 @@ void setup() {
   reconnect();
 
   pinMode(ledPin, OUTPUT);
+  pushBtn.begin();
 
   if (ledState) digitalWrite(ledPin, HIGH);
 
@@ -77,6 +83,11 @@ void setup() {
 void loop() {
   if (!client.connected() && WiFi.status() == 3) {
     reconnect();
+  }
+
+  pushBtn.read();
+  if (pushBtn.wasReleased()) {
+    toggleLed();
   }
 
   //maintain MQTT connection
@@ -165,6 +176,25 @@ void doDevicePublish() {
   String payload = "{\"macaddr\":\"" + DEVICEMACADDR + "\",\"ip\":\"" + WiFi.localIP().toString() + "\",\"device\":\"" + DEVICENAME + "\",\"wifi_dBM\":" + String(rssi) + ",\"wifi_strength\":" + String(signalPercentage) + ",\"version\":\"" + VERSION + "\"}";
   String topic = MQTT_TOP_TOPIC + String("devices/info");
   client.publish(topic.c_str(), payload.c_str());
+}
+
+void toggleLed() {
+  String ledResultFullTopic = MQTT_TOP_TOPIC + ledTopic + String("/stat/result");
+  if (ledState) {
+    digitalWrite(ledPin, LOW);
+    EEPROM.write(0, 0);
+    EEPROM.commit();
+    ledState = 0;
+    char* resultPayload = "{\"power\":\"off\"}";
+    client.publish(ledResultFullTopic.c_str(), resultPayload);
+  } else {
+    digitalWrite(ledPin, HIGH);
+    EEPROM.write(0, 1);
+    EEPROM.commit();
+    ledState = 1;
+    char* resultPayload = "{\"power\":\"on\"}";
+    client.publish(ledResultFullTopic.c_str(), resultPayload);
+  }
 }
 
 //generate unique name from MAC addr
