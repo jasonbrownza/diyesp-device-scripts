@@ -27,8 +27,9 @@ String VERSION = "v1.0.1";
 
 // LED
 const int ledPin = D1;
-int ledState;
-const String ledTopic = "basicled"; //Must be unique across all your devices
+int ledValue = 0;
+int ledPercent; // stores the percentage equivalent of ledValue
+const String ledTopic = "pwmled"; //Must be unique across all your devices
 
 WiFiClient wifiClient;
 
@@ -46,8 +47,9 @@ String DEVICEMACADDR;
 
 void setup() {
 
-  EEPROM.begin(8); //Using the EEPROM to store the last state of the LED. This allows the led to retain its last state after power off
-  ledState = EEPROM.read(0);
+  EEPROM.begin(512);
+  EEPROM.get(0, ledValue);
+  analogWrite(ledPin, ledValue);
 
   //WIFI
   WiFi.mode(WIFI_STA);
@@ -63,10 +65,6 @@ void setup() {
   WiFi.hostname((char*) DEVICENAME.c_str());
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   reconnect();
-
-  pinMode(ledPin, OUTPUT);
-
-  if (ledState) digitalWrite(ledPin, HIGH);
 
   delay(500);
 
@@ -94,32 +92,28 @@ void cbMsgRec(char* topic, byte* payload, unsigned int length) {
     ESP.restart();
   }
 
-  //Handle turning on/off the led
-  String ledCmndFullTopic = MQTT_TOP_TOPIC + ledTopic + String("/cmnd/power");
+  //Handle the brightness of the led
+  String ledCmndFullTopic = MQTT_TOP_TOPIC + ledTopic + String("/cmnd/value");
   String ledResultFullTopic = MQTT_TOP_TOPIC + ledTopic + String("/stat/result");
   if (strcmp(topic, ledCmndFullTopic.c_str()) == 0) {
-    if (payloadStr == "ON" || payloadStr == "on") {
-      digitalWrite(ledPin, HIGH);
-      EEPROM.write(0, 1);
-      EEPROM.commit();
-      ledState = 1;
-      char* resultPayload = "{\"power\":\"on\"}";
-      client.publish(ledResultFullTopic.c_str(), resultPayload);
-    } else if (payloadStr == "OFF" || payloadStr == "off") {
-      digitalWrite(ledPin, LOW);
-      EEPROM.write(0, 0);
-      EEPROM.commit();
-      ledState = 0;
-      char* resultPayload = "{\"power\":\"off\"}";
-      client.publish(ledResultFullTopic.c_str(), resultPayload);
+    if (payloadStr == "?") {
+      ledPercent = map(ledValue, 0, 1023, 0, 100);
+      String resultPayload = "{\"value\":" + String(ledPercent) + "}";
+      client.publish(ledResultFullTopic.c_str(), resultPayload.c_str());
     } else {
-      if (ledState) {
-        char* resultPayload = "{\"power\":\"on\"}";
-        client.publish(ledResultFullTopic.c_str(), resultPayload);
-      } else {
-        char* resultPayload = "{\"power\":\"off\"}";
-        client.publish(ledResultFullTopic.c_str(), resultPayload);
-      }
+      ledPercent = payloadStr.toInt();
+      ledValue = map(ledPercent, 0, 100, 0, 1023);
+      analogWrite(ledPin, ledValue);
+      String resultPayload = "{\"value\":" + payloadStr + "}";
+      client.publish(ledResultFullTopic.c_str(), resultPayload.c_str());
+
+      //save value to eeprom
+      EEPROM.begin(512);
+      int eeAddress = 0;
+      EEPROM.put(eeAddress, ledValue);
+      eeAddress += sizeof(int);
+      EEPROM.put(0, ledValue);
+      EEPROM.commit();
     }
   }
 
@@ -138,7 +132,7 @@ void reconnect() {
       if (client.connect((char*) DEVICENAME.c_str(), MQTT_USER, MQTT_PASS)) {
         String rebootTopic = MQTT_TOP_TOPIC + DEVICENAME + String("/restart");
         client.subscribe(rebootTopic.c_str());
-        String ledCmndFullTopic = MQTT_TOP_TOPIC + ledTopic + String("/cmnd/power");
+        String ledCmndFullTopic = MQTT_TOP_TOPIC + ledTopic + String("/cmnd/value");
         client.subscribe(ledCmndFullTopic.c_str());
 
         String connmsg = "{\"type\":2,\"msg\":\"" + DEVICENAME + " connected\"}";
@@ -146,13 +140,11 @@ void reconnect() {
         delay(20);
 
         String ledResultFullTopic = MQTT_TOP_TOPIC + ledTopic + String("/stat/result");
-        if (ledState) {
-          char* resultPayload = "{\"power\":\"on\"}";
-          client.publish(ledResultFullTopic.c_str(), resultPayload);
-        } else {
-          char* resultPayload = "{\"power\":\"off\"}";
-          client.publish(ledResultFullTopic.c_str(), resultPayload);
-        }
+        ledPercent = map(ledValue, 0, 1023, 0, 100);
+        String resultPayload = "{\"value\":" + String(ledPercent) + "}";
+        client.publish(ledResultFullTopic.c_str(), resultPayload.c_str());
+        delay(20);
+
         doDevicePublish();
       }
     }
@@ -165,25 +157,6 @@ void doDevicePublish() {
   String payload = "{\"macaddr\":\"" + DEVICEMACADDR + "\",\"ip\":\"" + WiFi.localIP().toString() + "\",\"device\":\"" + DEVICENAME + "\",\"wifi_dBM\":" + String(rssi) + ",\"wifi_strength\":" + String(signalPercentage) + ",\"version\":\"" + VERSION + "\"}";
   String topic = MQTT_TOP_TOPIC + String("devices/info");
   client.publish(topic.c_str(), payload.c_str());
-}
-
-void toggleLed() {
-  String ledResultFullTopic = MQTT_TOP_TOPIC + ledTopic + String("/stat/result");
-  if (ledState) {
-    digitalWrite(ledPin, LOW);
-    EEPROM.write(0, 0);
-    EEPROM.commit();
-    ledState = 0;
-    char* resultPayload = "{\"power\":\"off\"}";
-    client.publish(ledResultFullTopic.c_str(), resultPayload);
-  } else {
-    digitalWrite(ledPin, HIGH);
-    EEPROM.write(0, 1);
-    EEPROM.commit();
-    ledState = 1;
-    char* resultPayload = "{\"power\":\"on\"}";
-    client.publish(ledResultFullTopic.c_str(), resultPayload);
-  }
 }
 
 //generate unique name from MAC addr
