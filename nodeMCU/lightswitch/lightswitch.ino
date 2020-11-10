@@ -29,7 +29,7 @@ String VERSION = "v1.0.1";
 // LED
 const int ledPin = D1;
 int ledState;
-const String ledTopic = "ledpushbtn"; //Must be unique across all your devices
+const String ledTopic = "lightswitch"; //Must be unique across all your devices
 
 // PUSH BUTTON
 const int switchPin = D2;
@@ -86,10 +86,10 @@ void loop() {
   }
 
   pushBtn.read();
-  if (pushBtn.isPressed()) {
+  if (pushBtn.wasPressed()) {
     toggleLed();
   }
-  if(pushBtn.isReleased()) {
+  if(pushBtn.wasReleased()) {
     toggleLed();
   }
 
