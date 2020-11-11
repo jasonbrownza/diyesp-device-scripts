@@ -1,7 +1,7 @@
 #include <PubSubClient.h> //Requires PubSubClient found here: https://github.com/knolleary/pubsubclient
 #include <ESP8266WiFi.h>
 #include <Ticker.h>
-#include <EEPROM.h>
+#include "DHT.h"
 
 /*
   ======================================================================================================================================
@@ -24,12 +24,12 @@ String VERSION = "v1.0.1";
   ======================================================================================================================================
 */
 
+DHT dht;
+const int dht11Pin = D1;
+const String temperatureTopic = "temperature"; //Must be unique across all your devices
+const String humidityTopic = "humidity"; //Must be unique across all your devices
 
-// LED
-const int ledPin = D1;
-int ledValue = 0;
-int ledPercent; // stores the percentage equivalent of ledValue
-const String ledTopic = "pwmled"; //Must be unique across all your devices
+long lastSensorPublish = 0;
 
 WiFiClient wifiClient;
 
@@ -46,9 +46,7 @@ String PLATFORM = ARDUINO_BOARD;
 
 void setup() {
 
-  EEPROM.begin(512);
-  EEPROM.get(0, ledValue);
-  analogWrite(ledPin, ledValue);
+  dht.setup(dht11Pin);
 
   //WIFI
   WiFi.mode(WIFI_STA);
@@ -78,6 +76,8 @@ void loop() {
     reconnect();
   }
 
+  doSensorPublish();
+
   //maintain MQTT connection
   client.loop();
 }
@@ -91,31 +91,6 @@ void cbMsgRec(char* topic, byte* payload, unsigned int length) {
   //Restart the ESP
   if (payloadStr == "RESTART" || payloadStr == "restart") {
     ESP.restart();
-  }
-
-  //Handle the brightness of the led
-  String ledCmndFullTopic = MQTT_TOP_TOPIC + ledTopic + String("/cmnd/value");
-  String ledResultFullTopic = MQTT_TOP_TOPIC + ledTopic + String("/stat/result");
-  if (strcmp(topic, ledCmndFullTopic.c_str()) == 0) {
-    if (payloadStr == "?") {
-      ledPercent = map(ledValue, 0, 1023, 0, 100);
-      String resultPayload = "{\"value\":" + String(ledPercent) + "}";
-      client.publish(ledResultFullTopic.c_str(), resultPayload.c_str());
-    } else {
-      ledPercent = payloadStr.toInt();
-      ledValue = map(ledPercent, 0, 100, 0, 1023);
-      analogWrite(ledPin, ledValue);
-      String resultPayload = "{\"value\":" + payloadStr + "}";
-      client.publish(ledResultFullTopic.c_str(), resultPayload.c_str());
-
-      //save value to eeprom
-      EEPROM.begin(512);
-      int eeAddress = 0;
-      EEPROM.put(eeAddress, ledValue);
-      eeAddress += sizeof(int);
-      EEPROM.put(0, ledValue);
-      EEPROM.commit();
-    }
   }
 
 }
@@ -133,18 +108,9 @@ void reconnect() {
       if (client.connect((char*) DEVICENAME.c_str(), MQTT_USER, MQTT_PASS)) {
         String rebootTopic = MQTT_TOP_TOPIC + DEVICENAME + String("/restart");
         client.subscribe(rebootTopic.c_str());
-        String ledCmndFullTopic = MQTT_TOP_TOPIC + ledTopic + String("/cmnd/value");
-        client.subscribe(ledCmndFullTopic.c_str());
 
         String connmsg = "{\"type\":2,\"msg\":\"" + DEVICENAME + " connected\"}";
         client.publish("/myhome/alerts", connmsg.c_str());
-        delay(20);
-
-        String ledResultFullTopic = MQTT_TOP_TOPIC + ledTopic + String("/stat/result");
-        ledPercent = map(ledValue, 0, 1023, 0, 100);
-        String resultPayload = "{\"value\":" + String(ledPercent) + "}";
-        client.publish(ledResultFullTopic.c_str(), resultPayload.c_str());
-        delay(20);
 
         doDevicePublish();
       }
@@ -158,6 +124,25 @@ void doDevicePublish() {
   String payload = "{\"macaddr\":\"" + DEVICEMACADDR + "\",\"ip\":\"" + WiFi.localIP().toString() + "\",\"platform\":\"" + PLATFORM + "\",\"name\":\"" + DEVICENAME + "\",\"wifi_dBM\":" + String(rssi) + ",\"wifi_strength\":" + String(signalPercentage) + ",\"version\":\"" + VERSION + "\"}";
   String topic = MQTT_TOP_TOPIC + String("devices/info");
   client.publish(topic.c_str(), payload.c_str());
+}
+
+void doSensorPublish() {
+  long now = millis();
+  if (now - lastSensorPublish > 10000) {
+    lastSensorPublish = now;
+
+    String temperatureFullTopic = MQTT_TOP_TOPIC + temperatureTopic + String("/stat/result");
+    String humidityFullTopic = MQTT_TOP_TOPIC + humidityTopic + String("/stat/result");
+
+    float humidity = dht.getHumidity();/* Get humidity value */
+    float temperature = dht.getTemperature();/* Get temperature value */
+
+    String temperaturePayload = "{\"value\":" + String(temperature) + "}";
+    client.publish(temperatureFullTopic.c_str(), temperaturePayload.c_str());
+
+    String humidityPayload = "{\"value\":" + String(humidity) + "}";
+    client.publish(humidityFullTopic.c_str(), humidityPayload.c_str());
+  }
 }
 
 //generate unique name from MAC addr

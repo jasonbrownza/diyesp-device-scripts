@@ -35,14 +35,13 @@ WiFiClient wifiClient;
 void cbMsgRec(char* topic, byte* payload, unsigned int length);
 PubSubClient client(MQTT_SERVER, MQTT_PORT, cbMsgRec, wifiClient);
 
-long lastInfoPublish = 0;
-
 const int RSSI_MAX = -50; // define maximum strength of signal in dBm
 const int RSSI_MIN = -100; // define minimum strength of signal in dBm
 
 Ticker tickerDeviceInfo;
 
 String DEVICEMACADDR;
+String PLATFORM = ARDUINO_BOARD;
 
 void setup() {
 
@@ -59,6 +58,8 @@ void setup() {
     DEVICENAME = "espio-";
     DEVICENAME += DEVICEMACADDR;
   }
+
+  PLATFORM = ARDUINO_BOARD;
 
   WiFi.hostname((char*) DEVICENAME.c_str());
   WiFi.begin(WIFI_SSID, WIFI_PASS);
@@ -162,7 +163,7 @@ void reconnect() {
 void doDevicePublish() {
   int rssi = WiFi.RSSI();
   int signalPercentage = dBmtoPercentage(rssi);
-  String payload = "{\"macaddr\":\"" + DEVICEMACADDR + "\",\"ip\":\"" + WiFi.localIP().toString() + "\",\"device\":\"" + DEVICENAME + "\",\"wifi_dBM\":" + String(rssi) + ",\"wifi_strength\":" + String(signalPercentage) + ",\"version\":\"" + VERSION + "\"}";
+  String payload = "{\"macaddr\":\"" + DEVICEMACADDR + "\",\"ip\":\"" + WiFi.localIP().toString() + "\",\"platform\":\"" + PLATFORM + "\",\"name\":\"" + DEVICENAME + "\",\"wifi_dBM\":" + String(rssi) + ",\"wifi_strength\":" + String(signalPercentage) + ",\"version\":\"" + VERSION + "\"}";
   String topic = MQTT_TOP_TOPIC + String("devices/info");
   client.publish(topic.c_str(), payload.c_str());
 }
