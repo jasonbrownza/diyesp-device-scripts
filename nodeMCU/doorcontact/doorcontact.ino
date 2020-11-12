@@ -8,10 +8,10 @@
   ======================================================================================================================================
 */
 
-#define WIFI_SSID "outside"       // Your WiFi ssid
-#define WIFI_PASS "rodrigues21"    // Your WiFi password
+#define WIFI_SSID "REPLACE_WITH_YOUR_SSID"       // Your WiFi ssid
+#define WIFI_PASS "REPLACE_WITH_YOUR_PASSWORD"    // Your WiFi password
 
-#define MQTT_SERVER "192.168.255.10"   // Your mqtt server ip address
+#define MQTT_SERVER "REPLACE_WITH_YOUR_MQTT_BROKER_IP"   // Your mqtt server ip address
 #define MQTT_PORT 1883             // Your mqtt port
 #define MQTT_USER "user"      // mqtt username
 #define MQTT_PASS "password"      // mqtt password
