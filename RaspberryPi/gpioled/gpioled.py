@@ -6,6 +6,9 @@ import time
 import paho.mqtt.client as mqtt #Python paho mqtt client. For more info https://www.eclipse.org/paho/clients/python/docs/
 import RPi.GPIO as GPIO #Library to control the Raspberry Pi GPIO pins
 
+#script version
+version = "v1.0.1"
+
 #Wait for the network to available. This is required if you add this script to rc.local
 time.sleep(30)
 

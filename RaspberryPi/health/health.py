@@ -6,6 +6,9 @@ import time
 import traceback
 import paho.mqtt.publish as publish
 
+#script version
+version = "v1.0.1"
+
 
 # ======================================================================================================================================
 #                                           Modify parameters below for your MQTT broker
