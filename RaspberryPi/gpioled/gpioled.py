@@ -32,12 +32,11 @@ class Node:
 
 #GPIO NODES
 nodes = []
-nodes.append( Node("raspberrypi_gpio8", 8) ) #red led connected to gpio 8 using topic "raspberrypi_gpio8"
-nodes.append( Node("raspberrypi_gpio12", 12) ) #yellow led connected to gpio 8 using topic "raspberrypi_gpio12"
+nodes.append( Node("raspberrypi_gpio11", 11) ) #red led connected to gpio 11 using topic "raspberrypi_gpio11"
+nodes.append( Node("raspberrypi_gpio13", 13) ) #yellow led connected to gpio 13 using topic "raspberrypi_gpio13"
 
 #Uncomment below if you require additional nodes 
-#nodes.append( Node("gpio18", 18) ) #green
-#nodes.append( Node("gpio16", 16) ) #blue
+#nodes.append( Node("raspberrypi_gpio15", 15) )
 
 
 #CONFIGURE GPIO
