@@ -20,7 +20,7 @@ time.sleep(30)
 topTopic = "/myhome/"
 mqttServerAddress = "192.168.255.10"
 mqttServerPort = 1883
-mqttClientId = 'pihealthscript' #ensure the client id is unique
+mqttClientId = 'pigpioscript' #ensure the client id is unique
 mqttUsername = "user"
 mqttPassword = "password"
 mqttUserPass = dict(username=mqttUsername, password=mqttPassword)
