@@ -1,1 +1,1 @@
-# espio-device-scripts
+Repository of example scripts and devices that can be connected to espIO
