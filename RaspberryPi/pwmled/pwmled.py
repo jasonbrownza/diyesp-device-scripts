@@ -9,9 +9,6 @@ import RPi.GPIO as GPIO #Library to control the Raspberry Pi GPIO pins
 #script version
 version = "v1.0.1"
 
-#Wait for the network to be available. This is required if you add this script to rc.local
-time.sleep(30)
-
 
 # ======================================================================================================================================
 #                                           Modify parameters below for your MQTT broker
@@ -20,51 +17,31 @@ time.sleep(30)
 topTopic = "/myhome/"
 mqttServerAddress = "192.168.255.10"
 mqttServerPort = 1883
-mqttClientId = 'pigpioscript' #ensure the client id is unique
+mqttClientId = 'pipwmledscript' #ensure the client id is unique
 mqttUsername = "user"
 mqttPassword = "password"
 mqttUserPass = dict(username=mqttUsername, password=mqttPassword)
 
 #======================================================================================================================================
 
-
-class Node:
-  def __init__(self, topic, pin):
-    self.topic = topic
-    self.pin = pin
-
-#GPIO NODES
-nodes = []
-nodes.append( Node("raspberrypi_gpio11", 11) ) #red led connected to gpio 11 using topic "raspberrypi_gpio11"
-nodes.append( Node("raspberrypi_gpio13", 13) ) #yellow led connected to gpio 13 using topic "raspberrypi_gpio13"
-
-#Uncomment below if you require additional nodes 
-#nodes.append( Node("raspberrypi_gpio15", 15) )
-
+dutyCycle = 50
 
 #CONFIGURE GPIO
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BOARD) #USING THE PHYSICAL PIN NUMBERING I.E. PIN 0 = PHYSICAL PIN 0 PIN 40 IS PHYSICAL PIN 40
 
-for node in nodes:
-  GPIO.setup(node.pin,GPIO.OUT) #Configure all the nodes as OUTPUT
+GPIO.setup(12, GPIO.OUT)
+pwm = GPIO.PWM(12, 100)
+pwm.start(dutyCycle)
+pinTopic = 'raspberrypi_gpio12'
 
 # The callback when the client connects
 def on_connect(client, userdata, flags, rc):
   if rc == 0:
     # Subscribing in on_connect() means that if we lose the connection and
     # reconnect then subscriptions will be renewed.
-
-    #subscribe to the restart topic
-    device = os.popen("hostname").readline().replace('\r', '').replace('\n', '')
-    restartTopic = topTopic + device + "/restart"
-    client.subscribe(restartTopic)
- 
-    #subscribing to the topics for all the nodes, sending the status of the nodes     
-    for node in nodes:
-      client.subscribe(topTopic + node.topic + "/cmnd/#")
-      send_status(node)
-    
+    client.subscribe(topTopic + pinTopic + "/cmnd/#")
+    send_value(dutyCycle)
   elif rc == 1:
     sys.exit("Connection refused: incorrect protocol version") 
   elif rc == 2:
@@ -81,38 +58,17 @@ def on_connect(client, userdata, flags, rc):
 
 # The callback for when a PUBLISH message is received
 def on_message(client, userdata, msg):
-  # print("MSGREC: " + msg.topic + " " + str(msg.payload))
-  topicparts = msg.topic.split("/") #Split the message topic
-  if len(topicparts) == 5:
-    for node in nodes:
-      if topicparts[2] == node.topic:
-        if topicparts[3].lower() == "cmnd":
-          setGpio( node, msg.payload.decode('utf-8') )
-  if len(topicparts) == 4:
-    if topicparts[3] == 'restart':
-      os.popen('sudo shutdown -r now "Received restart command from espio client. RESTARTING NOW!"')
-
-#Function to set the PIN on or off
-def setGpio(node, payload):
-  topic = topTopic + node.topic + "/stat/result"
-  if payload.lower() == 'on':
-    GPIO.output(node.pin,True)
-    client.publish(topic, payload='{"power":"on"}', qos=0, retain=False)
-  if payload.lower() == 'off':
-    GPIO.output(node.pin,False)
-    client.publish(topic, payload='{"power":"off"}', qos=0, retain=False)
-  if payload.lower() == '?':
-    send_status(node)
-
-#Function to send the PIN / LED status i.e. is the led on or off
-def send_status(node):
-  topic = topTopic + node.topic + "/stat/result"
-  gpioState = GPIO.input(node.pin)
-  if gpioState == 1:
-    payload = '{"power":"on"}'
+  if msg.payload.decode('utf-8') == "?":
+    send_value(dutyCycle)
   else:
-    payload = '{"power":"off"}'
-  client.publish(topic, payload=payload, qos=0, retain=False)
+    dutyCycle = int(msg.payload.decode('utf-8'))
+    pwm.ChangeDutyCycle(dutyCycle)
+    send_value(dutyCycle)
+
+#Function to send the duty cycle value
+def send_value(val):
+  resultTopic = topTopic + pinTopic + "/stat/result"
+  client.publish(resultTopic, payload='{"value":' +  str(val) + '}', qos=0, retain=False)
 
 #client = mqtt.Client(client_id=mqttClientId, clean_session=True, userdata=None, transport="websockets") #use websockets
 client = mqtt.Client(client_id=mqttClientId, clean_session=True, userdata=None, transport="tcp")
@@ -125,4 +81,5 @@ try:
   client.loop_forever()
 
 except KeyboardInterrupt:
+  pwm.stop()
   GPIO.cleanup()
