@@ -18,7 +18,7 @@
 #define MQTT_USER "user"      // mqtt username
 #define MQTT_PASS "password"      // mqtt password
 
-String MQTT_TOP_TOPIC = "/myhome/";
+String MQTT_TOP_TOPIC = "/espio/";
 String DEVICENAME = ""; //Must be unique amongst your devices. leave blank for automatic generation of unique name
 String VERSION = "v1.0.1";
 /*

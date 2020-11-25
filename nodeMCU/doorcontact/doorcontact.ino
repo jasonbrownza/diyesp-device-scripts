@@ -16,7 +16,7 @@
 #define MQTT_USER "user"      // mqtt username
 #define MQTT_PASS "password"      // mqtt password
 
-String MQTT_TOP_TOPIC = "/myhome/";
+String MQTT_TOP_TOPIC = "/espio/";
 String DEVICENAME = ""; //Must be unique amongst your devices. leave blank for automatic generation of unique name
 String VERSION = "v1.0.1";
 /*
@@ -160,7 +160,7 @@ void toggledoorContact() {
     //Send an alert when the door contact is open
     delay(10);
     String connmsg = "{\"type\":4,\"msg\":\"Door Opened\"}";
-    client.publish("/myhome/alerts", connmsg.c_str());
+    client.publish("/espio/alerts", connmsg.c_str());
   }
 }
 
