@@ -14,7 +14,7 @@ version = "v1.0.1"
 #                                           Modify parameters below for your MQTT broker
 # ======================================================================================================================================
 
-topTopic = "/myhome/"
+topTopic = "/espio/"
 mqttServerAddress = "192.168.255.10"
 mqttServerPort = 1883
 mqttClientId = 'pipwmledscript' #ensure the client id is unique

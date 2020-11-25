@@ -14,6 +14,7 @@ version = "v1.0.1"
 #                                           Modify parameters below for your MQTT broker
 # ======================================================================================================================================
 
+topTopic = "/espio/"
 mqttServerAddress = "192.168.255.10"
 mqttServerPort = 1883
 mqttClientId = 'pihealthscript' #ensure the client id is unique
@@ -54,15 +55,15 @@ def getRAMinfo():
 
 def cpuTemp():
   cputemp = os.popen("cat /sys/class/thermal/thermal_zone0/temp").read()
-  topic = "/myhome/picputemp/stat/result"
-  payload = '{"value":' + str(int(int(cputemp)/1000)) + '}'
+  topic = topTopic + "picputemp/stat/result"
+  payload = '{"value":' + str(int(int(cputemp)/1000)).strip() + '}'
   payload = payload.replace('\r', '').replace('\n', '')
   doPublish(topic, payload)
 
 
 def diskUsed():
   usedspace = os.popen("df --output=pcent | awk -F'%' 'NR==2{print $1}'").read()
-  topic = "/myhome/pidiskused/stat/result"
+  topic = topTopic + "pidiskused/stat/result"
   payload = '{"value":' + str(usedspace).strip() + '}'
   payload = payload.replace('\r', '').replace('\n', '')
   doPublish(topic, payload)
@@ -72,7 +73,7 @@ def ramFree():
   raminfo = getRAMinfo()
   ramfree = int(raminfo[2])
   ramfreemb = ramfree / 1024
-  topic = "/myhome/pimemfree/stat/result"
+  topic = topTopic + "pimemfree/stat/result"
   payload = '{"value":' + str(ramfreemb) + '}'
   doPublish(topic, payload)
 

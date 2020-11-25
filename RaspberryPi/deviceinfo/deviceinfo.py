@@ -46,7 +46,7 @@ def deviceInfo():
   ip = os.popen("ifconfig wlan0 | grep inet | awk '{ print $2 }'").readline()
   dbm = os.popen("iwconfig wlan0 | grep -i level | awk '{ print $4 }'").read().replace("level=", "")
   quality = 2 * (int(dbm) + 100)
-  topic = "/myhome/devices/info"
+  topic = "/espio/devices/info"
   payload = '{"ip":"' + str(ip) + '","macaddr":"' + macaddr + '","name":"' + device + '","platform":"' + platform + '","wifi_dBM":' + str(dbm) + ',"wifi_strength":' + str(quality) + '}'
   payload = payload.replace('\r', '').replace('\n', '')
   doPublish(topic, payload)
