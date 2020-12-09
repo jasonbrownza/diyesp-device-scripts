@@ -1,12 +1,11 @@
 #include <PubSubClient.h> //Requires PubSubClient found here: https://github.com/knolleary/pubsubclient
 #include <ESP8266WiFi.h>
+#include <Ticker.h>
+#include <EEPROM.h>
+#include <JC_Button.h> // https://github.com/JChristensen/JC_Button
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
-#include <Ticker.h>
-//Requires IRremoteESP8266 found here: https://github.com/crankyoldgit/IRremoteESP8266
-#include <IRremoteESP8266.h>
-#include <IRsend.h>
 
 /*
   ======================================================================================================================================
@@ -29,8 +28,15 @@ String VERSION = "v1.0.1";
   ======================================================================================================================================
 */
 
-String irRecTopic = "irtransmitter";
-IRsend irsend(3);
+
+// RELAY
+const int relayPin = 12;
+int relayState;
+const String relayTopic = "sonoffbasic"; //Must be a unique across all your devices
+
+// PUSH BUTTON
+const int switchPin = 0;
+Button pushBtn(switchPin, 25, false, false);
 
 WiFiClient wifiClient;
 
@@ -40,12 +46,27 @@ PubSubClient client(MQTT_SERVER, MQTT_PORT, cbMsgRec, wifiClient);
 const int RSSI_MAX = -50; // define maximum strength of signal in dBm
 const int RSSI_MIN = -100; // define minimum strength of signal in dBm
 
+Ticker tickerDeviceInfo;
+
 String DEVICEMACADDR;
 String PLATFORM = ARDUINO_BOARD;
 
-Ticker tickerDeviceInfo;
+// OTA UPDATE
+bool OTAupdate = false;
+bool doOtaReboot = false;
+
+const int BOARDLED = 13;
 
 void setup() {
+
+  EEPROM.begin(8); //Using the EEPROM to store the last state of the relay. This allows the relay to retain its last state after power off
+  relayState = EEPROM.read(0);
+
+  pinMode(relayPin, OUTPUT);
+
+  pushBtn.begin();
+
+  if (relayState) digitalWrite(relayPin, HIGH);
 
   //WIFI
   WiFi.mode(WIFI_STA);
@@ -58,24 +79,59 @@ void setup() {
     DEVICENAME += DEVICEMACADDR;
   }
 
+  PLATFORM = ARDUINO_BOARD;
+
   WiFi.hostname((char*) DEVICENAME.c_str());
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   reconnect();
 
-  PLATFORM = ARDUINO_BOARD;
-
-  irsend.begin();
+  //OTA
+  ArduinoOTA.setHostname((char*) DEVICENAME.c_str());
+  ArduinoOTA.onStart([]() {
+    OTAupdate = true;
+  });
+  ArduinoOTA.onEnd([]() {
+    OTAupdate = false;
+    doOtaReboot = true;
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    digitalWrite(BOARDLED, LOW);
+    delay(5);
+    digitalWrite(BOARDLED, HIGH);
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    OTAupdate = false;
+  });
+  ArduinoOTA.begin();
   
+
+  delay(500);
+
   tickerDeviceInfo.attach(60, doDevicePublish); //Publish device info every 60 seconds
+
 }
 
 void loop() {
   if (!client.connected() && WiFi.status() == 3) {
     reconnect();
   }
+  
+  ArduinoOTA.handle();
+  if (OTAupdate == false) {
 
-  //maintain MQTT connection
-  client.loop();
+    pushBtn.read();
+    if (pushBtn.wasReleased()) {
+      toggleRelay();
+    }
+
+    //maintain MQTT connection
+    client.loop();
+
+    if (doOtaReboot) {
+      ESP.restart();
+    }
+  }
+  
 }
 
 void cbMsgRec(char* topic, byte* payload, unsigned int length) {
@@ -89,26 +145,35 @@ void cbMsgRec(char* topic, byte* payload, unsigned int length) {
     ESP.restart();
   }
 
-  if (payloadStr == "power") {
-    irsend.sendRC5(0x80C, 12);
+  //Handle turning on/off the relay
+  String relayCmndFullTopic = MQTT_TOP_TOPIC + relayTopic + String("/cmnd/power");
+  String relayResultFullTopic = MQTT_TOP_TOPIC + relayTopic + String("/stat/result");
+  if (strcmp(topic, relayCmndFullTopic.c_str()) == 0) {
+    if (payloadStr == "ON" || payloadStr == "on") {
+      digitalWrite(relayPin, HIGH);
+      EEPROM.write(0, 1);
+      EEPROM.commit();
+      relayState = 1;
+      char* resultPayload = "{\"power\":\"on\"}";
+      client.publish(relayResultFullTopic.c_str(), resultPayload);
+    } else if (payloadStr == "OFF" || payloadStr == "off") {
+      digitalWrite(relayPin, LOW);
+      EEPROM.write(0, 0);
+      EEPROM.commit();
+      relayState = 0;
+      char* resultPayload = "{\"power\":\"off\"}";
+      client.publish(relayResultFullTopic.c_str(), resultPayload);
+    } else {
+      if (relayState) {
+        char* resultPayload = "{\"power\":\"on\"}";
+        client.publish(relayResultFullTopic.c_str(), resultPayload);
+      } else {
+        char* resultPayload = "{\"power\":\"off\"}";
+        client.publish(relayResultFullTopic.c_str(), resultPayload);
+      }
+    }
   }
 
-  if (payloadStr == "mute") {
-    irsend.sendRC5(0x838, 12);
-  }
-
-  if (payloadStr == "volup") {
-    irsend.sendRC5(0x810, 12);
-  }
-
-  if (payloadStr == "voldown") {
-    irsend.sendRC5(0x811, 12);
-  }
-
-  //Reply back with the last command executed
-  String irResultFullTopic = MQTT_TOP_TOPIC + irRecTopic + String("/stat/result");
-  client.publish(irResultFullTopic.c_str(), payloadStr.c_str());
-  
 }
 
 void reconnect() {
@@ -124,10 +189,21 @@ void reconnect() {
       if (client.connect((char*) DEVICENAME.c_str(), MQTT_USER, MQTT_PASS)) {
         String rebootTopic = MQTT_TOP_TOPIC + DEVICENAME + String("/restart");
         client.subscribe(rebootTopic.c_str());
+        String relayCmndFullTopic = MQTT_TOP_TOPIC + relayTopic + String("/cmnd/power");
+        client.subscribe(relayCmndFullTopic.c_str());
 
-        String irFullTopic = MQTT_TOP_TOPIC + irRecTopic + String("/cmnd/transmit");
-        client.subscribe(irFullTopic.c_str());
+        String connmsg = "{\"type\":2,\"msg\":\"" + DEVICENAME + " connected\"}";
+        client.publish("/myhome/alerts", connmsg.c_str());
+        delay(20);
 
+        String relayResultFullTopic = MQTT_TOP_TOPIC + relayTopic + String("/stat/result");
+        if (relayState) {
+          char* resultPayload = "{\"power\":\"on\"}";
+          client.publish(relayResultFullTopic.c_str(), resultPayload);
+        } else {
+          char* resultPayload = "{\"power\":\"off\"}";
+          client.publish(relayResultFullTopic.c_str(), resultPayload);
+        }
         doDevicePublish();
       }
     }
@@ -142,6 +218,24 @@ void doDevicePublish() {
   client.publish(topic.c_str(), payload.c_str());
 }
 
+void toggleRelay() {
+  String relayResultFullTopic = MQTT_TOP_TOPIC + relayTopic + String("/stat/result");
+  if (relayState) {
+    digitalWrite(relayPin, LOW);
+    EEPROM.write(0, 0);
+    EEPROM.commit();
+    relayState = 0;
+    char* resultPayload = "{\"power\":\"off\"}";
+    client.publish(relayResultFullTopic.c_str(), resultPayload);
+  } else {
+    digitalWrite(relayPin, HIGH);
+    EEPROM.write(0, 1);
+    EEPROM.commit();
+    relayState = 1;
+    char* resultPayload = "{\"power\":\"on\"}";
+    client.publish(relayResultFullTopic.c_str(), resultPayload);
+  }
+}
 
 //generate unique name from MAC addr
 String macToStr(const uint8_t* mac) {
