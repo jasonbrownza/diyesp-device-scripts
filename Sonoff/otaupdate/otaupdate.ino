@@ -103,9 +103,6 @@ void setup() {
     OTAupdate = false;
   });
   ArduinoOTA.begin();
-  
-
-  delay(500);
 
   tickerDeviceInfo.attach(60, doDevicePublish); //Publish device info every 60 seconds
 
