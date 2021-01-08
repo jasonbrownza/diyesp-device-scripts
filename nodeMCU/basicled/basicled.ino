@@ -1,5 +1,6 @@
 #include <PubSubClient.h> //Requires PubSubClient found here: https://github.com/knolleary/pubsubclient
 #include <ESP8266WiFi.h>
+#include <WiFiClientSecure.h>
 #include <Ticker.h>
 #include <EEPROM.h>
 
@@ -9,15 +10,15 @@
   ======================================================================================================================================
 */
 
-#define WIFI_SSID "REPLACE_WITH_YOUR_SSID"       // Your WiFi ssid
-#define WIFI_PASS "REPLACE_WITH_YOUR_PASSWORD"    // Your WiFi password
+#define WIFI_SSID "REPLACE_WITH_YOUR_SSID"          // Your WiFi ssid
+#define WIFI_PASS "REPLACE_WITH_YOUR_PASSWORD"      // Your WiFi password
 
-#define MQTT_SERVER "REPLACE_WITH_YOUR_MQTT_BROKER_IP"   // Your mqtt server ip address
-#define MQTT_PORT 1883             // Your mqtt port
-#define MQTT_USER "user"      // mqtt username
-#define MQTT_PASS "password"      // mqtt password
+#define MQTT_SERVER "diyesp.com"
+#define MQTT_PORT 8883                              // 1883 is insecure and your username & password will be transmitted in plaintext. Use 8883 for encrypted connections
+#define MQTT_USER "REPLACE_WITH_YOUR_MQTT_USERNAME" // Your mqtt username (to see your username and password in the web app go to management -> settings)
+#define MQTT_PASS "REPLACE_WITH_YOUR_MQTT_PASSWORD" // Your mqtt password
 
-String MQTT_TOP_TOPIC = "/espio/";
+String MQTT_CLIENT_CODE = "/REPLACE_WITH_YOUR_CLIENTCODE/";
 String DEVICENAME = ""; //Must be unique amongst your devices. leave blank for automatic generation of unique name
 String VERSION = "v1.0.1";
 /*
@@ -30,7 +31,7 @@ const int ledPin = D1;
 int ledState;
 const String ledTopic = "basicled"; //Must be unique across all your devices
 
-WiFiClient wifiClient;
+WiFiClientSecure wifiClient;
 
 void cbMsgRec(char* topic, byte* payload, unsigned int length);
 PubSubClient client(MQTT_SERVER, MQTT_PORT, cbMsgRec, wifiClient);
@@ -96,8 +97,8 @@ void cbMsgRec(char* topic, byte* payload, unsigned int length) {
   }
 
   //Handle turning on/off the led
-  String ledCmndFullTopic = MQTT_TOP_TOPIC + ledTopic + String("/cmnd/power");
-  String ledResultFullTopic = MQTT_TOP_TOPIC + ledTopic + String("/stat/result");
+  String ledCmndFullTopic = MQTT_CLIENT_CODE + ledTopic + String("/cmnd/power");
+  String ledResultFullTopic = MQTT_CLIENT_CODE + ledTopic + String("/stat/result");
   if (strcmp(topic, ledCmndFullTopic.c_str()) == 0) {
     if (payloadStr == "ON" || payloadStr == "on") {
       digitalWrite(ledPin, HIGH);
@@ -137,16 +138,16 @@ void reconnect() {
   if (WiFi.status() == WL_CONNECTED) {
     while (!client.connected()) {
       if (client.connect((char*) DEVICENAME.c_str(), MQTT_USER, MQTT_PASS)) {
-        String rebootTopic = MQTT_TOP_TOPIC + DEVICENAME + String("/restart");
+        String rebootTopic = MQTT_CLIENT_CODE + DEVICENAME + String("/restart");
         client.subscribe(rebootTopic.c_str());
-        String ledCmndFullTopic = MQTT_TOP_TOPIC + ledTopic + String("/cmnd/power");
+        String ledCmndFullTopic = MQTT_CLIENT_CODE + ledTopic + String("/cmnd/power");
         client.subscribe(ledCmndFullTopic.c_str());
 
         String connmsg = "{\"type\":2,\"msg\":\"" + DEVICENAME + " connected\"}";
         client.publish("/myhome/alerts", connmsg.c_str());
         delay(20);
 
-        String ledResultFullTopic = MQTT_TOP_TOPIC + ledTopic + String("/stat/result");
+        String ledResultFullTopic = MQTT_CLIENT_CODE + ledTopic + String("/stat/result");
         if (ledState) {
           char* resultPayload = "{\"power\":\"on\"}";
           client.publish(ledResultFullTopic.c_str(), resultPayload);
@@ -164,7 +165,7 @@ void doDevicePublish() {
   int rssi = WiFi.RSSI();
   int signalPercentage = dBmtoPercentage(rssi);
   String payload = "{\"macaddr\":\"" + DEVICEMACADDR + "\",\"ip\":\"" + WiFi.localIP().toString() + "\",\"platform\":\"" + PLATFORM + "\",\"name\":\"" + DEVICENAME + "\",\"wifi_dBM\":" + String(rssi) + ",\"wifi_strength\":" + String(signalPercentage) + ",\"version\":\"" + VERSION + "\"}";
-  String topic = MQTT_TOP_TOPIC + String("devices/info");
+  String topic = MQTT_CLIENT_CODE + String("devices/info");
   client.publish(topic.c_str(), payload.c_str());
 }
 
