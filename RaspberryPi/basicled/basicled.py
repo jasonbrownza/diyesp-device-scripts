@@ -7,7 +7,7 @@ import paho.mqtt.client as mqtt #Python paho mqtt client. For more info https://
 import RPi.GPIO as GPIO #Library to control the Raspberry Pi GPIO pins
 
 #script version
-version = "v1.0.1"
+version = "v1.0.1" 
 
 
 # ======================================================================================================================================
