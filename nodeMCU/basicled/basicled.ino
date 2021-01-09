@@ -15,10 +15,10 @@
 
 #define MQTT_SERVER "diyesp.com"
 #define MQTT_PORT 8883 // Port 1883 can be used it is insecure and your username & password will be transmitted in plaintext. Use 8883 for encrypted connections
-#define MQTT_USER "REPLACE_WITH_YOUR_MQTT_USERNAME" // Your mqtt username (to see your username and password in the web app go to management -> settings)
+#define MQTT_USER "REPLACE_WITH_YOUR_MQTT_USERNAME" // Your mqtt username (to get your username and password in the web app go to management -> settings)
 #define MQTT_PASS "REPLACE_WITH_YOUR_MQTT_PASSWORD" // Your mqtt password
 
-String MQTT_CLIENT_CODE = "REPLACE_WITH_YOUR_CLIENTCODE";
+String MQTT_CLIENT_CODE = "REPLACE_WITH_YOUR_CLIENTCODE"; // To get your client code in the web app go to management -> settings 
 String DEVICENAME = ""; //Must be unique amongst your devices, the first 13 characters must be your MQTT_CLIENT_CODE. leave blank for automatic generation of unique name
 String VERSION = "v1.0.1";
 
@@ -44,6 +44,7 @@ void setup() {
   //Initialize serial and wait for port to open:
   Serial.begin(115200);
   delay(100);
+  Serial.println("Starting...");
 
   EEPROM.begin(8); //Using the EEPROM to store the last state of the LED. This allows the led to retain its last state after power off
   ledState = EEPROM.read(0);
