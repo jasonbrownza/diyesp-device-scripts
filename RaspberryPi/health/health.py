@@ -91,7 +91,8 @@ def doPublish(topic, payload):
     retain=False,
     auth=MQTT_USER_PASS,
     qos=0,
-    tls=tls
+    tls=tls,
+    client_id=MQTT_CLIENT_ID
   )
 
 threading.Thread(target=lambda: every(60, cpuTemp)).start()
