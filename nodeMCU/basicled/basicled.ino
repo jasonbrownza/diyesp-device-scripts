@@ -20,7 +20,6 @@
 
 String MQTT_CLIENT_CODE = "REPLACE_WITH_YOUR_CLIENTCODE"; // To get your client code in the web app go to management -> settings 
 String DEVICENAME = ""; //Must be unique amongst your devices, the first 13 characters must be your MQTT_CLIENT_CODE. leave blank for automatic generation of unique name
-String VERSION = "v1.0.1";
 
 /*
   ======================================================================================================================================

@@ -21,7 +21,6 @@
 
 String MQTT_CLIENT_CODE = "REPLACE_WITH_YOUR_CLIENTCODE"; // To get your client code in the web app go to management -> settings 
 String DEVICENAME = ""; //Must be unique amongst your devices, the first 13 characters must be your MQTT_CLIENT_CODE. leave blank for automatic generation of unique name
-String VERSION = "v1.0.1";
 
 /*
   ======================================================================================================================================
@@ -31,6 +30,7 @@ String VERSION = "v1.0.1";
 const int doorContactPin = D1;
 int doorContactState;
 const String doorContactTopic = "doorcontact"; //Must be unique across all your devices
+int lastState;
 
 WiFiClientSecure wifiClient;
 
@@ -50,7 +50,10 @@ void setup() {
   Serial.println("Starting...");
 
   pinMode(doorContactPin, INPUT);
-  doorContactState = !digitalRead(doorContactPin);
+  doorContactState = digitalRead(doorContactPin);
+
+  EEPROM.begin(8); //Using the EEPROM to store the last state of the door contact
+  lastState = EEPROM.read(0);
 
   //WIFI
   WiFi.mode(WIFI_STA);
@@ -75,6 +78,11 @@ void setup() {
 
   delay(500);
 
+  if(doorContactState != lastState) {
+    //Door was opened / closed during power off. Send update to the broker
+    toggledoorContact();
+  }
+
   tickerHeartbeat.attach(60, doHeartbeatPublish); //Publish the status of the door contact every 60 seconds
 
 }
@@ -84,7 +92,9 @@ void loop() {
     reconnect();
   }
 
-  if (doorContactState != !digitalRead(doorContactPin)) {
+  if (doorContactState != digitalRead(doorContactPin)) {
+    EEPROM.write(0, doorContactState);
+    EEPROM.commit();
     toggledoorContact();
   }
 
@@ -121,7 +131,7 @@ void reconnect() {
     while (!client.connected()) {
       if (client.connect((char*) DEVICENAME.c_str(), MQTT_USER, MQTT_PASS)) {
 
-        String doorContactCmndFullTopic = MQTT_CLIENT_CODE + "/" + doorContactTopic + String("/sensor/update");
+        String doorContactCmndFullTopic = MQTT_CLIENT_CODE + "/" + doorContactTopic + "/sensor/update";
         client.subscribe(doorContactCmndFullTopic.c_str());
 
         doHeartbeatPublish();
@@ -134,7 +144,7 @@ void reconnect() {
 }
 
 void doHeartbeatPublish() {
-  String doorContactResultFullTopic = MQTT_CLIENT_CODE + "/" + doorContactTopic + String("/sensor/heartbeat");
+  String doorContactResultFullTopic = MQTT_CLIENT_CODE + "/" + doorContactTopic + "/sensor/heartbeat";
   if (doorContactState) {
     char* resultPayload = "{\"value\":1}";
     client.publish(doorContactResultFullTopic.c_str(), resultPayload);
@@ -146,21 +156,22 @@ void doHeartbeatPublish() {
 }
 
 void toggledoorContact() {
-  String doorContactResultFullTopic = MQTT_CLIENT_CODE + "/" + doorContactTopic + String("/sensor/update");
+  String doorContactResultFullTopic = MQTT_CLIENT_CODE + "/" + doorContactTopic + "/sensor/update";
   if (doorContactState) {
     doorContactState = 0;
     char* resultPayload = "{\"value\":0}";
     client.publish(doorContactResultFullTopic.c_str(), resultPayload);
+
+    //Send an alert when the door contact is open
+    delay(20);
+    String alertTopic = MQTT_CLIENT_CODE + "/alert/send";
+    String connmsg = "{\"type\":4,\"msg\":\"Door Opened\"}";
+    client.publish(alertTopic.c_str(), connmsg.c_str());
+
   } else {
     doorContactState = 1;
     char* resultPayload = "{\"value\":1}";
     client.publish(doorContactResultFullTopic.c_str(), resultPayload);
-
-    //Send an alert when the door contact is open
-    delay(10);
-    String alertTopic = MQTT_CLIENT_CODE + "/alert/send";
-    String connmsg = "{\"type\":4,\"msg\":\"Door Opened\"}";
-    client.publish(alertTopic.c_str(), connmsg.c_str());
   }
 }
 
