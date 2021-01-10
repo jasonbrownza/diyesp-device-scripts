@@ -20,8 +20,6 @@ MQTT_PASS = "REPLACE_WITH_YOUR_MQTT_PASSWORD" # Your mqtt password
 
 #======================================================================================================================================
 
-MQTT_USER_PASS = dict(username=MQTT_USER, password=MQTT_PASS)
-
 # Return RAM information (unit=kb) in a list
 # Index 0: total RAM
 # Index 1: used RAM

@@ -5,22 +5,18 @@ import os
 import time
 import paho.mqtt.client as mqtt #Python paho mqtt client. For more info https://www.eclipse.org/paho/clients/python/docs/
 import RPi.GPIO as GPIO #Library to control the Raspberry Pi GPIO pins
-
-#script version
-version = "v1.0.1"
-
+import ssl
 
 # ======================================================================================================================================
 #                                           Modify parameters below for your MQTT broker
 # ======================================================================================================================================
 
-topTopic = "/espio/"
-mqttServerAddress = "192.168.255.10"
-mqttServerPort = 1883
-mqttClientId = 'pipwmledscript' #ensure the client id is unique
-mqttUsername = "user"
-mqttPassword = "password"
-mqttUserPass = dict(username=mqttUsername, password=mqttPassword)
+MQTT_CLIENT_CODE = "REPLACE_WITH_YOUR_CLIENTCODE"; # To get your client code in the web app go to management -> settings 
+MQTT_SERVER = "diyesp.com"
+MQTT_PORT = 8883
+MQTT_CLIENT_ID = MQTT_CLIENT_CODE + '_basicled' #ensure the client id is unique
+MQTT_USER = "REPLACE_WITH_YOUR_MQTT_USERNAME" # Your mqtt username (to get your username and password in the web app go to management -> settings)
+MQTT_PASS = "REPLACE_WITH_YOUR_MQTT_PASSWORD" # Your mqtt password
 
 #======================================================================================================================================
 
@@ -33,15 +29,15 @@ GPIO.setmode(GPIO.BOARD) #USING THE PHYSICAL PIN NUMBERING I.E. PIN 0 = PHYSICAL
 GPIO.setup(12, GPIO.OUT)
 pwm = GPIO.PWM(12, 100)
 pwm.start(dutyCycle)
-pinTopic = 'raspberrypi_gpio12'
+pinTopic = 'pwmled'
 
 # The callback when the client connects
 def on_connect(client, userdata, flags, rc):
   if rc == 0:
     # Subscribing in on_connect() means that if we lose the connection and
     # reconnect then subscriptions will be renewed.
-    client.subscribe(topTopic + pinTopic + "/cmnd/#")
-    send_value(dutyCycle)
+    client.subscribe(MQTT_CLIENT_CODE + "/pwmled/device/value")
+    send_value()
   elif rc == 1:
     sys.exit("Connection refused: incorrect protocol version") 
   elif rc == 2:
@@ -59,23 +55,26 @@ def on_connect(client, userdata, flags, rc):
 # The callback for when a PUBLISH message is received
 def on_message(client, userdata, msg):
   if msg.payload.decode('utf-8') == "?":
-    send_value(dutyCycle)
+    send_value()
   else:
+    global dutyCycle
     dutyCycle = int(msg.payload.decode('utf-8'))
     pwm.ChangeDutyCycle(dutyCycle)
-    send_value(dutyCycle)
+    send_value()
 
 #Function to send the duty cycle value
-def send_value(val):
-  resultTopic = topTopic + pinTopic + "/stat/result"
-  client.publish(resultTopic, payload='{"value":' +  str(val) + '}', qos=0, retain=False)
+def send_value():
+  resultTopic = MQTT_CLIENT_CODE + "/pwmled/device/update"
+  client.publish(resultTopic, payload='{"value":' +  str(dutyCycle) + '}', qos=0, retain=False)
 
 #client = mqtt.Client(client_id=mqttClientId, clean_session=True, userdata=None, transport="websockets") #use websockets
-client = mqtt.Client(client_id=mqttClientId, clean_session=True, userdata=None, transport="tcp")
-client.username_pw_set(mqttUsername, mqttPassword)
+client = mqtt.Client(client_id=MQTT_CLIENT_ID, clean_session=True, userdata=None, transport="tcp")
+client.username_pw_set(MQTT_USER, MQTT_PASS)
 client.on_connect = on_connect
 client.on_message = on_message
-client.connect(mqttServerAddress, mqttServerPort, 60)
+client.tls_set (cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLSv1_2)
+client.tls_insecure_set (False)
+client.connect(MQTT_SERVER, MQTT_PORT, 60)
 
 try:
   client.loop_forever()
