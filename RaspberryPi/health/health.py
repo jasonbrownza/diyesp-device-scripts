@@ -5,24 +5,22 @@ import threading
 import time
 import traceback
 import paho.mqtt.publish as publish
-
-#script version
-version = "v1.0.1"
-
+import ssl
 
 # ======================================================================================================================================
-#                                           Modify parameters below for your MQTT broker
+#                                           Modify parameters below
 # ======================================================================================================================================
 
-topTopic = "/espio/"
-mqttServerAddress = "192.168.255.10"
-mqttServerPort = 1883
-mqttClientId = 'pihealthscript' #ensure the client id is unique
-mqttUsername = "user"
-mqttPassword = "password"
-mqttUserPass = dict(username=mqttUsername, password=mqttPassword)
+MQTT_CLIENT_CODE = "REPLACE_WITH_YOUR_CLIENTCODE"; # To get your client code in the web app go to management -> settings 
+MQTT_SERVER = "diyesp.com"
+MQTT_PORT = 8883
+MQTT_CLIENT_ID = MQTT_CLIENT_CODE + '_pihealth' #ensure the client id is unique
+MQTT_USER = "REPLACE_WITH_YOUR_MQTT_USERNAME" # Your mqtt username (to get your username and password in the web app go to management -> settings)
+MQTT_PASS = "REPLACE_WITH_YOUR_MQTT_PASSWORD" # Your mqtt password
 
 #======================================================================================================================================
+
+MQTT_USER_PASS = dict(username=MQTT_USER, password=MQTT_PASS)
 
 def every(delay, task):
   next_time = time.time() + delay
@@ -55,7 +53,7 @@ def getRAMinfo():
 
 def cpuTemp():
   cputemp = os.popen("cat /sys/class/thermal/thermal_zone0/temp").read()
-  topic = topTopic + "picputemp/stat/result"
+  topic = MQTT_CLIENT_CODE + "/picputemp/sensor/update"
   payload = '{"value":' + str(int(int(cputemp)/1000)).strip() + '}'
   payload = payload.replace('\r', '').replace('\n', '')
   doPublish(topic, payload)
@@ -63,7 +61,7 @@ def cpuTemp():
 
 def diskUsed():
   usedspace = os.popen("df --output=pcent | awk -F'%' 'NR==2{print $1}'").read()
-  topic = topTopic + "pidiskused/stat/result"
+  topic = MQTT_CLIENT_CODE + "/pidiskused/sensor/update"
   payload = '{"value":' + str(usedspace).strip() + '}'
   payload = payload.replace('\r', '').replace('\n', '')
   doPublish(topic, payload)
@@ -73,22 +71,29 @@ def ramFree():
   raminfo = getRAMinfo()
   ramfree = int(raminfo[2])
   ramfreemb = ramfree / 1024
-  topic = topTopic + "pimemfree/stat/result"
+  topic = MQTT_CLIENT_CODE + "/pimemfree/sensor/update"
   payload = '{"value":' + str(ramfreemb) + '}'
   doPublish(topic, payload)
 
  
 def doPublish(topic, payload):
+
+  tls = {
+    'cert_reqs' : ssl.CERT_REQUIRED,
+    'tls_version' : ssl.PROTOCOL_TLSv1_2
+  }
+
   publish.single(
     topic=topic,
     payload=payload,
-    hostname=mqttServerAddress,
-    port=mqttServerPort,
+    hostname=MQTT_SERVER,
+    port=MQTT_PORT,
     retain=False,
-    auth=mqttUserPass,
-    qos=0
+    auth=MQTT_USER_PASS,
+    qos=0,
+    tls=tls
   )
 
-threading.Thread(target=lambda: every(20, cpuTemp)).start()
-threading.Thread(target=lambda: every(20, diskUsed)).start()
-threading.Thread(target=lambda: every(20, ramFree)).start()
+threading.Thread(target=lambda: every(60, cpuTemp)).start()
+threading.Thread(target=lambda: every(60, diskUsed)).start()
+threading.Thread(target=lambda: every(60, ramFree)).start()
