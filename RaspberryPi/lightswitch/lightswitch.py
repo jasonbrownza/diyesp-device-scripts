@@ -27,7 +27,7 @@ GPIO.setup(ledPin, GPIO.OUT)
 ledState = GPIO.input(ledPin)
 
 switchPin = 16
-GPIO.setup(switchPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(switchPin, GPIO.IN)
 
 def button_callback(channel):
   time.sleep(0.01)
@@ -68,11 +68,14 @@ def on_message(client, userdata, msg):
 #Function to set the PIN on or off
 def setGpio(payload):
   topic = MQTT_CLIENT_CODE + "/lightswitch/device/update"
+  global ledState
   if payload.lower() == 'on':
+    ledState = 1
     GPIO.output(ledPin,True)
     client.publish(topic, payload='{"power":"on"}', qos=0, retain=False)
   if payload.lower() == 'off':
     GPIO.output(ledPin,False)
+    ledState = 0
     client.publish(topic, payload='{"power":"off"}', qos=0, retain=False)
 
 #Function to send the PIN / LED status i.e. is the led on or off
