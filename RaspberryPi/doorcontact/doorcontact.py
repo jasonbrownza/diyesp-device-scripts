@@ -32,10 +32,9 @@ reedSwitchState = GPIO.input(reedSwitchPin)
 
 def button_callback(channel):
   time.sleep(0.01)
-  global reedSwitchState
   sendStatus()
 
-GPIO.add_event_detect(reedSwitchPin, GPIO.RISING, callback=button_callback, bouncetime=200)
+GPIO.add_event_detect(reedSwitchPin, GPIO.BOTH, callback=button_callback, bouncetime=200)
 
 def sendStatus():
   topic = MQTT_CLIENT_CODE + "/doorcontact/sensor/update"

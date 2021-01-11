@@ -26,16 +26,17 @@ ledPin = 12
 GPIO.setup(ledPin, GPIO.OUT)
 ledState = GPIO.input(ledPin)
 
-btnPin = 16
-GPIO.setup(btnPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+switchPin = 16
+GPIO.setup(switchPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 def button_callback(channel):
+  time.sleep(0.01)
   global ledState
   GPIO.output(ledPin, not ledState)
   ledState = not ledState
   sendStatus()
 
-GPIO.add_event_detect(btnPin, GPIO.RISING, callback=button_callback, bouncetime=200)
+GPIO.add_event_detect(switchPin, GPIO.BOTH, callback=button_callback, bouncetime=200)
 
 # The callback when the client connects
 def on_connect(client, userdata, flags, rc):
