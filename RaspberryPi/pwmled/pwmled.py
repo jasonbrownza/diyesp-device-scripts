@@ -1,7 +1,5 @@
 #! /usr/bin/env python3
 
-import sys
-import os
 import time
 import paho.mqtt.client as mqtt #Python paho mqtt client. For more info https://www.eclipse.org/paho/clients/python/docs/
 import RPi.GPIO as GPIO #Library to control the Raspberry Pi GPIO pins
@@ -14,7 +12,7 @@ import ssl
 MQTT_CLIENT_CODE = "REPLACE_WITH_YOUR_CLIENTCODE"; # To get your client code in the web app go to management -> settings 
 MQTT_SERVER = "diyesp.com"
 MQTT_PORT = 8883
-MQTT_CLIENT_ID = MQTT_CLIENT_CODE + '_basicled' #ensure the client id is unique
+MQTT_CLIENT_ID = MQTT_CLIENT_CODE + '_pwmled' #ensure the client id is unique
 MQTT_USER = "REPLACE_WITH_YOUR_MQTT_USERNAME" # Your mqtt username (to get your username and password in the web app go to management -> settings)
 MQTT_PASS = "REPLACE_WITH_YOUR_MQTT_PASSWORD" # Your mqtt password
 

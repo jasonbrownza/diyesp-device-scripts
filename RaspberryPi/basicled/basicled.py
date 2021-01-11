@@ -1,7 +1,5 @@
 #! /usr/bin/env python3
 
-import sys
-import os
 import time
 import paho.mqtt.client as mqtt #Python paho mqtt client. For more info https://www.eclipse.org/paho/clients/python/docs/
 import RPi.GPIO as GPIO #Library to control the Raspberry Pi GPIO pins
