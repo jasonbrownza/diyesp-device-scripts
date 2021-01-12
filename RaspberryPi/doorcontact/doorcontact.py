@@ -15,7 +15,7 @@ import atexit
 MQTT_CLIENT_CODE = "REPLACE_WITH_YOUR_CLIENTCODE"; # To get your client code in the web app go to management -> settings 
 MQTT_SERVER = "diyesp.com"
 MQTT_PORT = 8883
-MQTT_CLIENT_ID = MQTT_CLIENT_CODE + '_ledpushbtn' #ensure the client id is unique
+MQTT_CLIENT_ID = MQTT_CLIENT_CODE + '_doorcont' #ensure the client id is unique
 MQTT_USER = "REPLACE_WITH_YOUR_MQTT_USERNAME" # Your mqtt username (to get your username and password in the web app go to management -> settings)
 MQTT_PASS = "REPLACE_WITH_YOUR_MQTT_PASSWORD" # Your mqtt password
 
